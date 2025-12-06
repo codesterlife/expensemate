@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if expense %}Edit{% else %}Add{% endif %} Expense - ExpenseMate{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title mb-4">
+                    <i class="bi bi-{% if expense %}pencil{% else %}plus-circle{% endif %}"></i>
+                    {% if expense %}Edit{% else %}Add New{% endif %} Expense
+                </h3>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category <span class="text-danger">*</span></label>
+                        <select name="category" id="category" class="form-select" required>
+                            <option value="">Select a category</option>
+                            {% for value, label in categories %}
+                                <option value="{{ value }}" {% if expense.category == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Amount <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" name="amount" id="amount" class="form-control" 
+                                   value="{{ expense.amount|default:'' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="date" class="form-label">Date <span class="text-danger">*</span></label>
+                        <input type="date" name="date" id="date" class="form-control" 
+                               value="{{ expense.date|date:'Y-m-d'|default:today }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                        <textarea name="description" id="description" class="form-control" rows="3" required>{{ expense.description|default:'' }}</textarea>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> {% if expense %}Update{% else %}Add{% endif %} Expense
+                        </button>
+                        <a href="{% url 'expense_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

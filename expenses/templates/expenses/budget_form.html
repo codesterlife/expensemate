@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if budget %}Edit{% else %}Add{% endif %} Budget Cap - ExpenseMate{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h3 class="card-title mb-4">
+                    <i class="bi bi-{% if budget %}pencil{% else %}plus-circle{% endif %}"></i>
+                    {% if budget %}Edit{% else %}Create{% endif %} Budget Cap
+                </h3>
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Budget Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="name" class="form-control" 
+                               value="{{ budget.name|default:'' }}" 
+                               placeholder="e.g., Monthly Food Budget" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="amount" class="form-label">Spending Limit <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" step="0.01" name="amount" id="amount" class="form-control" 
+                                   value="{{ budget.amount|default:'' }}" required>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="period" class="form-label">Period <span class="text-danger">*</span></label>
+                        <select name="period" id="period" class="form-select" required>
+                            <option value="weekly" {% if budget.period == 'weekly' %}selected{% endif %}>Weekly</option>
+                            <option value="monthly" {% if budget.period == 'monthly' or not budget %}selected{% endif %}>Monthly</option>
+                            <option value="yearly" {% if budget.period == 'yearly' %}selected{% endif %}>Yearly</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="category" class="form-label">Category (Optional)</label>
+                        <select name="category" id="category" class="form-select">
+                            <option value="">All Categories</option>
+                            {% for value, label in categories %}
+                                <option value="{{ value }}" {% if budget.category == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Leave empty to track all expenses</small>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle"></i> {% if budget %}Update{% else %}Create{% endif %} Budget Cap
+                        </button>
+                        <a href="{% url 'budget_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancel
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
