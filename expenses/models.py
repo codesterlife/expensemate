@@ -4,8 +4,8 @@ from django.contrib.auth.models import User
 from datetime import timedelta
 from decimal import Decimal
 
-class Expense(models.Model):
-    CATEGORY_CHOICES = [
+class Category(models.Model):
+    DEFAULT_CATEGORIES = [
         ('Food', 'Food & Dining'),
         ('Transport', 'Transportation'),
         ('Shopping', 'Shopping'),
@@ -16,8 +16,22 @@ class Expense(models.Model):
         ('Other', 'Other'),
     ]
     
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='custom_categories')
+    name = models.CharField(max_length=50)
+    is_default = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ('user', 'name')
+        ordering = ['name']
+    
+    def __str__(self):
+        return self.name
+
+
+class Expense(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses', null=True, blank=True)
-    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='expenses')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     date = models.DateField(default=timezone.now)
     description = models.TextField()
@@ -28,7 +42,8 @@ class Expense(models.Model):
         ordering = ['-date', '-created_at']
     
     def __str__(self):
-        return f"{self.category} - ${self.amount} on {self.date}"
+        category_name = self.category.name if self.category else 'Uncategorized'
+        return f"{category_name} - ₹{self.amount} on {self.date}"
 
 
 class BudgetCap(models.Model):
@@ -42,7 +57,7 @@ class BudgetCap(models.Model):
     name = models.CharField(max_length=100)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     period = models.CharField(max_length=20, choices=PERIOD_CHOICES, default='monthly')
-    category = models.CharField(max_length=50, choices=Expense.CATEGORY_CHOICES, blank=True, null=True)
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, blank=True, null=True, related_name='budget_caps')
     start_date = models.DateField(default=timezone.now)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -53,7 +68,7 @@ class BudgetCap(models.Model):
     
     def __str__(self):
         category_text = f" ({self.category})" if self.category else " (All Categories)"
-        return f"{self.name} - ${self.amount}/{self.period}{category_text}"
+        return f"{self.name} - ₹{self.amount}/{self.period}{category_text}"
     
     def get_period_dates(self):
         today = timezone.now().date()
@@ -112,6 +127,7 @@ class BudgetCap(models.Model):
         total = expenses.aggregate(models.Sum('amount'))['amount__sum'] or Decimal('0')
         return total
     
+    @property
     def get_remaining(self):
         spent = self.get_current_spending()
         return self.amount - spent
@@ -124,3 +140,9 @@ class BudgetCap(models.Model):
         if self.amount > 0:
             return min(100, int((spent / self.amount) * 100))
         return 0
+    
+    @property
+    def over_amount(self):
+        """Return positive amount over budget, or 0 if under"""
+        remaining = self.get_remaining
+        return abs(remaining) if remaining < 0 else 0

@@ -39,7 +39,7 @@
               >{{ budget.get_period_display }}</span
             >
             {% if budget.category %}
-            <span class="badge bg-info">{{ budget.category }}</span>
+            <span class="badge bg-info">{{ budget.category.name }}</span>
             {% else %}
             <span class="badge bg-light text-dark">All Categories</span>
             {% endif %}
@@ -89,14 +89,8 @@
 
         {% if budget.is_exceeded %}
         <div class="alert alert-danger py-2 mb-0">
-          <i class="bi bi-exclamation-circle"></i> Over budget by ₹{{
-          budget.get_remaining|slice:"1:" }}
+          <i class="bi bi-exclamation-circle"></i> Over budget by ₹{{ budget.over_amount }}
         </div>
-        {% else %}
-        <p class="text-muted mb-0">
-          <i class="bi bi-check-circle text-success"></i> ₹{{
-          budget.get_remaining }} remaining
-        </p>
         {% endif %}
       </div>
     </div>

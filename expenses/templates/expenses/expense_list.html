@@ -31,8 +31,8 @@
                         <label class="form-label">Category</label>
                         <select name="category" class="form-select">
                             <option value="">All Categories</option>
-                            {% for value, label in categories %}
-                                <option value="{{ value }}" {% if request.GET.category == value %}selected{% endif %}>{{ label }}</option>
+                            {% for category in categories %}
+                                <option value="{{ category.id }}" {% if request.GET.category|add:"" == category.id|add:"" %}selected{% endif %}>{{ category.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -71,9 +71,15 @@
                         {% for expense in expenses %}
                         <tr>
                             <td>{{ expense.date|date:"M d, Y" }}</td>
-                            <td><span class="expense-category bg-light">{{ expense.category }}</span></td>
+                            <td>
+                                {% if expense.category %}
+                                    <span class="badge bg-primary">{{ expense.category.name }}</span>
+                                {% else %}
+                                    <span class="text-muted">Uncategorized</span>
+                                {% endif %}
+                            </td>
                             <td>{{ expense.description }}</td>
-                            <td class="fw-bold text-danger">${{ expense.amount }}</td>
+                            <td class="fw-bold text-danger">₹{{ expense.amount }}</td>
                             <td>
                                 <a href="{% url 'expense_edit' expense.id %}" class="btn btn-sm btn-outline-primary">
                                     <i class="bi bi-pencil"></i>
@@ -89,7 +95,7 @@
                     <tfoot>
                         <tr>
                             <td colspan="3" class="text-end fw-bold">Total:</td>
-                            <td class="fw-bold text-danger">${{ total }}</td>
+                            <td class="fw-bold text-danger">₹{{ total }}</td>
                             <td></td>
                         </tr>
                     </tfoot>

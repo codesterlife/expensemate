@@ -19,7 +19,8 @@ import google.generativeai as genai
 import os
 from dotenv import load_dotenv
 
-from .models import Expense, BudgetCap
+from .models import Expense, BudgetCap, Category
+from .forms import ExpenseForm, BudgetCapForm, CategoryForm
 
 load_dotenv()
 
@@ -42,6 +43,65 @@ def register(request):
 
 
 @login_required
+def category_list(request):
+    categories = Category.objects.filter(user=request.user).order_by('name')
+    context = {
+        'categories': categories,
+    }
+    return render(request, 'expenses/category_list.html', context)
+
+
+@login_required
+def category_add(request):
+    if request.method == 'POST':
+        form = CategoryForm(request.POST)
+        if form.is_valid():
+            category = form.save(commit=False)
+            category.user = request.user
+            category.save()
+            messages.success(request, f'Category "{category.name}" created successfully!')
+            return redirect('category_list')
+    else:
+        form = CategoryForm()
+    
+    context = {
+        'form': form,
+        'is_add': True,
+    }
+    return render(request, 'expenses/category_form.html', context)
+
+
+@login_required
+def category_edit(request, pk):
+    category = get_object_or_404(Category, pk=pk, user=request.user)
+    
+    if request.method == 'POST':
+        form = CategoryForm(request.POST, instance=category)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Category "{category.name}" updated successfully!')
+            return redirect('category_list')
+    else:
+        form = CategoryForm(instance=category)
+    
+    context = {
+        'form': form,
+        'category': category,
+        'is_add': False,
+    }
+    return render(request, 'expenses/category_form.html', context)
+
+
+@login_required
+def category_delete(request, pk):
+    category = get_object_or_404(Category, pk=pk, user=request.user)
+    category_name = category.name
+    category.delete()
+    messages.success(request, f'Category "{category_name}" deleted successfully!')
+    return redirect('category_list')
+
+
+@login_required
 def dashboard(request):
     expenses = Expense.objects.filter(user=request.user)
     
@@ -57,9 +117,9 @@ def dashboard(request):
     days_in_month = now.day
     avg_daily = (month_expenses / days_in_month) if days_in_month > 0 else Decimal('0')
     
-    category_stats = expenses.values('category').annotate(total=Sum('amount')).order_by('-total')
+    category_stats = expenses.values('category__name').annotate(total=Sum('amount')).order_by('-total')
     category_data = {
-        'labels': [item['category'] for item in category_stats],
+        'labels': [item['category__name'] or 'Uncategorized' for item in category_stats],
         'values': [float(item['total']) for item in category_stats]
     }
     
@@ -91,7 +151,7 @@ def dashboard(request):
         'total_expenses': total_expenses,
         'month_expenses': month_expenses,
         'week_expenses': week_expenses,
-        'avg_daily': avg_daily,
+        'avg_daily': round(avg_daily, 2),
         'current_month': now.strftime('%B %Y'),
         'category_data': json.dumps(category_data),
         'monthly_data': json.dumps(monthly_data),
@@ -113,17 +173,18 @@ def expense_list(request):
     to_date = request.GET.get('to_date')
     
     if category:
-        expenses = expenses.filter(category=category)
+        expenses = expenses.filter(category__id=category)
     if from_date:
         expenses = expenses.filter(date__gte=from_date)
     if to_date:
         expenses = expenses.filter(date__lte=to_date)
     
     total = expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
+    user_categories = Category.objects.filter(user=request.user).order_by('name')
     
     context = {
         'expenses': expenses,
-        'categories': Expense.CATEGORY_CHOICES,
+        'categories': user_categories,
         'total': total,
     }
     
@@ -133,29 +194,24 @@ def expense_list(request):
 @login_required
 def expense_add(request):
     if request.method == 'POST':
-        category = request.POST.get('category')
-        amount = request.POST.get('amount')
-        date = request.POST.get('date')
-        description = request.POST.get('description')
-        
-        expense = Expense.objects.create(
-            user=request.user,
-            category=category,
-            amount=amount,
-            date=date,
-            description=description
-        )
-        
-        exceeded_budgets = check_budget_alerts(request.user)
-        if exceeded_budgets:
-            budget_names = ', '.join([b.name for b in exceeded_budgets])
-            messages.warning(request, f'Budget alert! You have exceeded: {budget_names}')
-        
-        messages.success(request, 'Expense added successfully!')
-        return redirect('expense_list')
+        form = ExpenseForm(request.POST, user=request.user)
+        if form.is_valid():
+            expense = form.save(commit=False)
+            expense.user = request.user
+            expense.save()
+            
+            exceeded_budgets = check_budget_alerts(request.user)
+            if exceeded_budgets:
+                budget_names = ', '.join([b.name for b in exceeded_budgets])
+                messages.warning(request, f'Budget alert! You have exceeded: {budget_names}')
+            
+            messages.success(request, 'Expense added successfully!')
+            return redirect('expense_list')
+    else:
+        form = ExpenseForm(user=request.user)
     
     context = {
-        'categories': Expense.CATEGORY_CHOICES,
+        'form': form,
         'today': timezone.now().date().isoformat(),
     }
     
@@ -167,23 +223,23 @@ def expense_edit(request, pk):
     expense = get_object_or_404(Expense, pk=pk, user=request.user)
     
     if request.method == 'POST':
-        expense.category = request.POST.get('category')
-        expense.amount = request.POST.get('amount')
-        expense.date = request.POST.get('date')
-        expense.description = request.POST.get('description')
-        expense.save()
-        
-        exceeded_budgets = check_budget_alerts(request.user)
-        if exceeded_budgets:
-            budget_names = ', '.join([b.name for b in exceeded_budgets])
-            messages.warning(request, f'Budget alert! You have exceeded: {budget_names}')
-        
-        messages.success(request, 'Expense updated successfully!')
-        return redirect('expense_list')
+        form = ExpenseForm(request.POST, instance=expense, user=request.user)
+        if form.is_valid():
+            form.save()
+            
+            exceeded_budgets = check_budget_alerts(request.user)
+            if exceeded_budgets:
+                budget_names = ', '.join([b.name for b in exceeded_budgets])
+                messages.warning(request, f'Budget alert! You have exceeded: {budget_names}')
+            
+            messages.success(request, 'Expense updated successfully!')
+            return redirect('expense_list')
+    else:
+        form = ExpenseForm(instance=expense, user=request.user)
     
     context = {
+        'form': form,
         'expense': expense,
-        'categories': Expense.CATEGORY_CHOICES,
     }
     
     return render(request, 'expenses/expense_form.html', context)
@@ -207,7 +263,8 @@ def export_csv(request):
     
     expenses = Expense.objects.filter(user=request.user)
     for expense in expenses:
-        writer.writerow([expense.date, expense.category, expense.amount, expense.description])
+        category_name = expense.category.name if expense.category else 'Uncategorized'
+        writer.writerow([expense.date, category_name, expense.amount, expense.description])
     
     return response
 
@@ -229,15 +286,16 @@ def export_pdf(request):
     total = Decimal('0')
     
     for expense in expenses:
+        category_name = expense.category.name if expense.category else 'Uncategorized'
         data.append([
             expense.date.strftime('%Y-%m-%d'),
-            expense.category,
-            f'${expense.amount}',
+            category_name,
+            f'Rs.{expense.amount}',
             expense.description[:50]
         ])
         total += expense.amount
     
-    data.append(['', '', f'${total}', 'TOTAL'])
+    data.append(['', '', f'Rs.{total}', 'TOTAL'])
     
     table = Table(data)
     table.setStyle(TableStyle([
@@ -272,6 +330,7 @@ def ai_predictions(request):
         
         try:
             api_key = os.environ.get('GEMINI_API_KEY')
+            sys_prompt = "No Markdown syntax allowed."
             
             if not api_key:
                 error = "Please set your GEMINI_API_KEY environment variable to use AI predictions."
@@ -282,17 +341,17 @@ def ai_predictions(request):
                 
                 expense_summary = []
                 for expense in expenses[:50]:
-                    expense_summary.append(f"{expense.date}: {expense.category} - ${expense.amount}")
+                    expense_summary.append(f"{expense.date}: {expense.category} - ₹{expense.amount}")
                 
                 category_stats = expenses.values('category').annotate(total=Sum('amount')).order_by('-total')
-                category_text = ', '.join([f"{item['category']}: ${item['total']}" for item in category_stats])
+                category_text = ', '.join([f"{item['category']}: ₹{item['total']}" for item in category_stats])
                 
                 total = expenses.aggregate(Sum('amount'))['amount__sum'] or Decimal('0')
                 
                 if prediction_type == 'next_month':
                     prompt = f"""Based on these expense records, predict next month's spending:
                     
-Total expenses so far: ${total}
+Total expenses so far: ₹{total}
 Category breakdown: {category_text}
 
 Recent expenses:
@@ -303,7 +362,7 @@ Provide a brief prediction of next month's spending with specific amounts."""
                 elif prediction_type == 'category_insights':
                     prompt = f"""Analyze these expenses and provide category-wise insights:
                     
-Total expenses: ${total}
+Total expenses: ₹{total}
 Category breakdown: {category_text}
 
 Recent expenses:
@@ -314,7 +373,7 @@ Which categories need attention? Provide specific recommendations."""
                 elif prediction_type == 'budget_advice':
                     prompt = f"""Based on these expenses, provide budget recommendations:
                     
-Total expenses: ${total}
+Total expenses: ₹{total}
 Category breakdown: {category_text}
 
 Recent expenses:
@@ -325,14 +384,14 @@ Suggest a realistic monthly budget and saving strategies."""
                 else:
                     prompt = f"""Based on these expense records, answer this question: {custom_question}
                     
-Total expenses: ${total}
+Total expenses: ₹{total}
 Category breakdown: {category_text}
 
 Recent expenses:
 {chr(10).join(expense_summary)}"""
                 
                 model = genai.GenerativeModel('gemini-2.5-flash')
-                response = model.generate_content(prompt)
+                response = model.generate_content(prompt + sys_prompt)
                 prediction = response.text.replace('\n', '<br>')
         
         except Exception as e:
@@ -360,46 +419,42 @@ def budget_list(request):
 @login_required
 def budget_add(request):
     if request.method == 'POST':
-        name = request.POST.get('name')
-        amount = request.POST.get('amount')
-        period = request.POST.get('period')
-        category = request.POST.get('category') or None
-        
-        BudgetCap.objects.create(
-            user=request.user,
-            name=name,
-            amount=amount,
-            period=period,
-            category=category
-        )
-        
-        messages.success(request, 'Budget cap created successfully!')
-        return redirect('budget_list')
+        form = BudgetCapForm(request.POST, user=request.user)
+        if form.is_valid():
+            budget = form.save(commit=False)
+            budget.user = request.user
+            budget.save()
+            
+            messages.success(request, 'Budget cap created successfully!')
+            return redirect('budget_list')
+    else:
+        form = BudgetCapForm(user=request.user)
     
     context = {
-        'categories': Expense.CATEGORY_CHOICES,
+        'form': form,
     }
     
     return render(request, 'expenses/budget_form.html', context)
 
 
 @login_required
+@login_required
 def budget_edit(request, pk):
     budget = get_object_or_404(BudgetCap, pk=pk, user=request.user)
     
     if request.method == 'POST':
-        budget.name = request.POST.get('name')
-        budget.amount = request.POST.get('amount')
-        budget.period = request.POST.get('period')
-        budget.category = request.POST.get('category') or None
-        budget.save()
-        
-        messages.success(request, 'Budget cap updated successfully!')
-        return redirect('budget_list')
+        form = BudgetCapForm(request.POST, instance=budget, user=request.user)
+        if form.is_valid():
+            form.save()
+            
+            messages.success(request, 'Budget cap updated successfully!')
+            return redirect('budget_list')
+    else:
+        form = BudgetCapForm(instance=budget, user=request.user)
     
     context = {
+        'form': form,
         'budget': budget,
-        'categories': Expense.CATEGORY_CHOICES,
     }
     
     return render(request, 'expenses/budget_form.html', context)

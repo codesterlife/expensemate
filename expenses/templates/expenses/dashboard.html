@@ -21,8 +21,8 @@
                 <li>
                     <strong>{{ budget.name }}</strong> 
                     ({{ budget.get_period_display }}{% if budget.category %} - {{ budget.category }}{% endif %}): 
-                    Spent ${{ budget.get_current_spending }} of ${{ budget.amount }} limit
-                    <span class="badge bg-danger ms-2">Over by ${{ budget.get_remaining|slice:"1:" }}</span>
+                    Spent ₹{{ budget.get_current_spending }} of ₹{{ budget.amount }} limit
+                    <span class="badge bg-danger ms-2">Over by ₹{{ budget.over_amount }}</span>
                 </li>
                 {% endfor %}
             </ul>
@@ -37,12 +37,12 @@
     <div class="col-12">
         <div class="alert alert-warning">
             <h5 class="alert-heading"><i class="bi bi-exclamation-circle"></i> Budget Warning</h5>
-            <p class="mb-2">These budgets are approaching their limits (80%+):</p>
+            <p class="mb-2">These budgets are approaching their limits:</p>
             <ul class="mb-2">
                 {% for budget in warning_budgets %}
                 <li>
                     <strong>{{ budget.name }}</strong>: 
-                    ${{ budget.get_remaining }} remaining ({{ budget.get_percentage_used }}% used)
+                    ₹{{ budget.get_remaining }} remaining ({{ budget.get_percentage_used }}% used)
                 </li>
                 {% endfor %}
             </ul>
@@ -56,7 +56,7 @@
         <div class="card stat-card">
             <div class="card-body">
                 <h6 class="text-muted">Total Expenses</h6>
-                <h3 class="mb-0">${{ total_expenses|default:"0.00" }}</h3>
+                <h3 class="mb-0">₹{{ total_expenses|default:"0.00" }}</h3>
                 <small class="text-muted">All time</small>
             </div>
         </div>
@@ -65,7 +65,7 @@
         <div class="card stat-card">
             <div class="card-body">
                 <h6 class="text-muted">This Month</h6>
-                <h3 class="mb-0">${{ month_expenses|default:"0.00" }}</h3>
+                <h3 class="mb-0">₹{{ month_expenses|default:"0.00" }}</h3>
                 <small class="text-muted">{{ current_month }}</small>
             </div>
         </div>
@@ -74,7 +74,7 @@
         <div class="card stat-card">
             <div class="card-body">
                 <h6 class="text-muted">This Week</h6>
-                <h3 class="mb-0">${{ week_expenses|default:"0.00" }}</h3>
+                <h3 class="mb-0">₹{{ week_expenses|default:"0.00" }}</h3>
                 <small class="text-muted">Last 7 days</small>
             </div>
         </div>
@@ -83,7 +83,7 @@
         <div class="card stat-card">
             <div class="card-body">
                 <h6 class="text-muted">Average/Day</h6>
-                <h3 class="mb-0">${{ avg_daily|default:"0.00" }}</h3>
+                <h3 class="mb-0">₹{{ avg_daily|default:"0.00" }}</h3>
                 <small class="text-muted">This month</small>
             </div>
         </div>
@@ -115,7 +115,7 @@
                                      role="progressbar" style="width: {{ percentage }}%"></div>
                                 {% endwith %}
                             </div>
-                            <small class="text-muted">${{ budget.get_current_spending }} / ${{ budget.amount }}</small>
+                            <small class="text-muted">₹{{ budget.get_current_spending }} / ₹{{ budget.amount }}</small>
                         </div>
                     </div>
                     {% endfor %}
@@ -167,7 +167,7 @@
                                     <td>{{ expense.date|date:"M d, Y" }}</td>
                                     <td><span class="expense-category bg-light">{{ expense.category }}</span></td>
                                     <td>{{ expense.description|truncatewords:10 }}</td>
-                                    <td class="fw-bold text-danger">${{ expense.amount }}</td>
+                                    <td class="fw-bold text-danger">₹{{ expense.amount }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -237,7 +237,7 @@
                     beginAtZero: true,
                     ticks: {
                         callback: function(value) {
-                            return '$' + value;
+                            return '₹' + value;
                         }
                     }
                 }
