@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% load static %}
+
 {% block title %}Login - ExpenseMate{% endblock %}
 
 {% block content %}
@@ -8,7 +10,7 @@
         <div class="card">
             <div class="card-body p-4">
                 <div class="text-center mb-4">
-                    <i class="bi bi-wallet2 display-4 text-primary"></i>
+                    <img src="{% static 'assets/images/favicon.png' %}" alt="ExpenseMate Logo" width="72" height="72">
                     <h3 class="mt-2">ExpenseMate</h3>
                     <p class="text-muted">Sign in to manage your expenses</p>
                 </div>
