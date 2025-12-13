@@ -205,6 +205,11 @@ def expense_add(request):
                 budget_names = ', '.join([b.name for b in exceeded_budgets])
                 messages.warning(request, f'Budget alert! You have exceeded: {budget_names}')
             
+            warning_budgets = check_budget_warnings(request.user)
+            if warning_budgets:
+                for budget in warning_budgets:
+                    messages.warning(request, f'You have reached {budget.get_percentage_used()}% of your {budget.name} budget!')
+            
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
@@ -231,6 +236,11 @@ def expense_edit(request, pk):
             if exceeded_budgets:
                 budget_names = ', '.join([b.name for b in exceeded_budgets])
                 messages.warning(request, f'Budget alert! You have exceeded: {budget_names}')
+            
+            warning_budgets = check_budget_warnings(request.user)
+            if warning_budgets:
+                for budget in warning_budgets:
+                    messages.warning(request, f'You have reached {budget.get_percentage_used()}% of your {budget.name} budget!')
             
             messages.success(request, 'Expense updated successfully!')
             return redirect('expense_list')
@@ -471,3 +481,9 @@ def budget_delete(request, pk):
 def check_budget_alerts(user):
     budgets = BudgetCap.objects.filter(user=user, is_active=True)
     return [b for b in budgets if b.is_exceeded()]
+
+
+def check_budget_warnings(user):
+    """Check for budgets that have reached 80% threshold but not exceeded"""
+    budgets = BudgetCap.objects.filter(user=user, is_active=True)
+    return [b for b in budgets if not b.is_exceeded() and b.get_percentage_used() >= 80]
